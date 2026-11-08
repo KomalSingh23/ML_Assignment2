@@ -101,4 +101,4 @@ Five supervised classification models were trained on 80% of the data and evalua
 
 ## 7. Live Deployment
 * **Streamlit Community Cloud Link:** `https://ml-assignment-2025ns04058.streamlit.app/`
-* **GitHub Repository:** `https://github.com/<your-username>/<your-repo-name>`
+* **GitHub Repository:** `https://github.com/KomalSingh23/ML_Assignment2`
