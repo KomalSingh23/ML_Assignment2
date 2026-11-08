@@ -1,0 +1,155 @@
+import pandas as pd
+import numpy as np
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+from sklearn.feature_selection import VarianceThreshold, SelectKBest, f_classif
+from sklearn.preprocessing import StandardScaler
+
+# Import the 5 required ML models
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+
+# Import the 6 required evaluation metrics
+from sklearn.metrics import (
+    accuracy_score, 
+    roc_auc_score, 
+    precision_score, 
+    recall_score, 
+    f1_score, 
+    matthews_corrcoef
+)
+
+print("1. Loading and preparing data...")
+df = pd.read_csv('uci-secom.csv')
+
+# Drop the 'Time' column if it exists
+if 'Time' in df.columns:
+    df = df.drop(columns=['Time'])
+
+# Separate features (X) and target label (y)
+X = df.iloc[:, :-1]  # All columns except the last one (sensors)
+y = df.iloc[:, -1]   # The last column (Pass/Fail)
+
+# Convert target labels from (-1, 1) to (0, 1)
+y = y.map({-1: 0, 1: 1})
+
+print("2. Cleaning and filtering data (Feature Selection)...")
+# Drop dead sensors (constant values)
+constant_filter = VarianceThreshold(threshold=0.0)
+X_filtered = pd.DataFrame(constant_filter.fit_transform(X))
+
+# Fill missing null values with column average (mean)
+imputer = SimpleImputer(strategy='mean')
+X_imputed = pd.DataFrame(imputer.fit_transform(X_filtered), columns=X_filtered.columns)
+
+# Select top 30 most informative features to cut out noise
+selector = SelectKBest(score_func=f_classif, k=30)
+X_selected = selector.fit_transform(X_imputed, y)
+
+print("3. Splitting into Train (80%) and Test (20%) sets...")
+X_train, X_test, y_train, y_test = train_test_split(X_selected, y, test_size=0.2, random_state=42)
+
+# Scale features so numbers are on the same uniform scale
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Save the test data and scaler so our Streamlit app can use them later
+test_df = pd.DataFrame(X_test)
+test_df['Target'] = y_test.values
+test_df.to_csv('test_data.csv', index=False)
+joblib.dump(scaler, 'scaler.pkl')
+joblib.dump(selector, 'selector.pkl')
+joblib.dump(imputer, 'imputer.pkl')
+
+print("4. Defining and training the 5 required models...")
+models = {
+    "Logistic Regression": LogisticRegression(random_state=42),
+    "Decision Tree": DecisionTreeClassifier(random_state=42),
+    "KNN": KNeighborsClassifier(),
+    "Naive Bayes": GaussianNB(),
+    "Support Vector Machine": SVC(probability=True, random_state=42)
+}
+
+results = []
+
+for name, model in models.items():
+    # Train (fit) the model on the training data
+    model.fit(X_train_scaled, y_train)
+    
+    # Save the trained model file to disk (for your GitHub and Streamlit app)
+    filename = f"model_{name.lower().replace(' ', '_')}.pkl"
+    joblib.dump(model, filename)
+    
+    # Predict outcomes on the unseen test data
+    y_pred = model.predict(X_test_scaled)
+    
+    # Get probability scores for AUC calculation
+    try:
+        y_prob = model.predict_proba(X_test_scaled)[:, 1]
+        auc = roc_auc_score(y_test, y_prob)
+    except:
+        auc = 0.0
+
+    # Calculate the 6 mandatory evaluation metrics
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred, zero_division=0)
+    rec = recall_score(y_test, y_pred, zero_division=0)
+    f1 = f1_score(y_test, y_pred, zero_division=0)
+    mcc = matthews_corrcoef(y_test, y_pred)
+    
+    # Store metrics for our summary table
+    results.append({
+        "ML Model Name": name,
+        "Accuracy": round(acc, 4),
+        "AUC": round(auc, 4),
+        "Precision": round(prec, 4),
+        "Recall": round(rec, 4),
+        "F1": round(f1, 4),
+        "MCC": round(mcc, 4)
+    })
+
+# Print the final comparison table for your README
+results_df = pd.DataFrame(results)
+print("\n" + "="*50)
+print("--- MODEL PERFORMANCE COMPARISON TABLE ---")
+print("="*50)
+print(results_df.to_string(index=False))
+print("="*50)
+print("All models trained, evaluated, and saved successfully!")
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+from sklearn.feature_selection import VarianceThreshold, SelectKBest, f_classif
+from sklearn.preprocessing import StandardScaler
+
+# 1. Load data
+df = pd.read_csv('uci-secom.csv')
+if 'Time' in df.columns:
+    df = df.drop(columns=['Time'])
+
+X = df.iloc[:, :-1]
+y = df.iloc[:, -1].map({-1: 0, 1: 1})
+
+# 2. Clean & Select Features (same as before)
+constant_filter = VarianceThreshold(threshold=0.0)
+X_filtered = pd.DataFrame(constant_filter.fit_transform(X))
+
+imputer = SimpleImputer(strategy='mean')
+X_imputed = pd.DataFrame(imputer.fit_transform(X_filtered), columns=X_filtered.columns)
+
+selector = SelectKBest(score_func=f_classif, k=30)
+X_selected = selector.fit_temp = selector.fit_transform(X_imputed, y)
+
+# 3. Split and save test set
+X_train, X_test, y_train, y_test = train_test_split(X_selected, y, test_size=0.2, random_state=42)
+
+test_df = pd.DataFrame(X_test)
+test_df['Target'] = y_test.values
+test_df.to_csv('test_data.csv', index=False)
+print("SUCCESS: test_data.csv has been created in your folder!")
